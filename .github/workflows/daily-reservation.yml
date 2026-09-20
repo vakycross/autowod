@@ -5,7 +5,7 @@ on:
   schedule:
     # Runs twice to cover both Spain summer (CEST, UTC+2) and winter (CET, UTC+1) time.
     # One of these will always land around 22:30 local time.
-    - cron: '58 12 * * 0'
+    - cron: '50 12 * * 0'
     
 
   # Run it manually from the Actions tab whenever you need to.
