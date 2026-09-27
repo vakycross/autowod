@@ -89,48 +89,44 @@ async function findReservationButton(
   reservationKey: string,
   className: string | null
 ): Promise<ElementHandle<Element> | null> {
-  const exactAnchorId = `${reservationKey}00`; // Ej: h160000
-  console.log(`🔎 Buscando ancla ID: #${exactAnchorId}`);
+  // Damos un respiro para que WodBuster renderice la parrilla
+  await page.waitForSelector('div.clase', { timeout: 5000 }).catch(() => {});
 
-  // Damos un margen generoso de 5 segundos para que cargue la parrilla
-  await page.waitForSelector('.horaAnchor, div.clase', { timeout: 5000 }).catch(() => {});
+  // Convertimos reservationKey (ej. "h1600") a formato hora "16:00"
+  const timeFormatted = reservationKey.replace('h', '').replace(/(\d{2})(\d{2})/, '$1:$2');
+  console.log(`🔎 Buscando tarjeta de clase para la hora: ${timeFormatted}`);
 
-  // 1. Comprobamos si el ancla de la hora existe en la página
-  const anchor = await page.$(`#${exactAnchorId}`);
-  if (!anchor) {
-    console.log(`⚠️ No se encontró el ancla #${exactAnchorId} en el DOM de este día.`);
-    return null;
-  }
-  console.log(`✅ Ancla #${exactAnchorId} encontrada con éxito.`);
-
-  // 2. Buscamos todas las tarjetas de clase
   const classCards = await page.$$('div.clase');
-  console.log(`📦 Tarjetas .clase totales detectadas en la página: ${classCards.length}`);
+  console.log(`📦 Tarjetas .clase totales detectadas: ${classCards.length}`);
 
   if (classCards.length === 0) return null;
 
   for (const card of classCards) {
-    // Leemos el título de la clase en la cabecera
+    const cardHtml = await card.evaluate(el => el.innerHTML);
     const headerText = await card
       .$eval('.entrenamientoHead', el => el?.textContent ?? '')
       .catch(() => '');
 
-    // Buscamos el botón de entrenar exacto
-    const button = await card.$('button.button.entrenar');
+    // Verificamos si esta tarjeta pertenece a nuestra hora (ej. contiene "16:00")
+    const matchesTime = cardHtml.includes(timeFormatted);
 
-    if (button) {
-      console.log(`💡 Botón encontrado. Cabecera leída: "${headerText.trim()}"`);
-      if (!className) {
-        return button;
-      }
-      if (headerText.toLowerCase().includes(className.toLowerCase())) {
-        console.log(`🎯 ¡Coincidencia exacta con la clase "${className}"!`);
-        return button;
+    if (matchesTime) {
+      console.log(`⏰ ¡Hora ${timeFormatted} encontrada en una tarjeta! Cabecera: "${headerText.trim()}"`);
+      
+      const button = await card.$('button.button.entrenar');
+      if (button) {
+        if (!className) {
+          return button;
+        }
+        if (headerText.toLowerCase().includes(className.toLowerCase())) {
+          console.log(`🎯 ¡Clase "${className}" y botón de reserva localizados con éxito!`);
+          return button;
+        }
       }
     }
   }
 
-  console.log(`❌ Se encontraron tarjetas pero ninguna coincidió con los filtros para ${reservationKey}`);
+  console.log(`❌ No se encontró ninguna tarjeta para las ${timeFormatted} con los filtros indicados.`);
   return null;
 }
 export async function makeReservation(
