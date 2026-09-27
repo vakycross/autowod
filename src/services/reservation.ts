@@ -89,45 +89,48 @@ async function findReservationButton(
   reservationKey: string,
   className: string | null
 ): Promise<ElementHandle<Element> | null> {
+  // Aseguramos que la clave tenga el formato de ID correcto (ej. h160000)
+  const anchorId = reservationKey.startsWith('h') ? reservationKey : `h${reservationKey}`;
+  console.log(`🔎 Buscando ancla exacta en el DOM: #${anchorId}`);
+
   // Damos un respiro para que WodBuster renderice la parrilla
-  await page.waitForSelector('div.clase', { timeout: 5000 }).catch(() => {});
+  await page.waitForSelector('.horaAnchor, div.clase', { timeout: 5000 }).catch(() => {});
 
-  // Convertimos reservationKey (ej. "h1600") a formato hora "16:00"
-  const timeFormatted = reservationKey.replace('h', '').replace(/(\d{2})(\d{2})/, '$1:$2');
-  console.log(`🔎 Buscando tarjeta de clase para la hora: ${timeFormatted}`);
+  const buttonHandle = await page.evaluateHandle((targetAnchorId, targetClassName) => {
+    const anchor = document.getElementById(targetAnchorId);
+    if (!anchor) return null;
 
-  const classCards = await page.$$('div.clase');
-  console.log(`📦 Tarjetas .clase totales detectadas: ${classCards.length}`);
+    // Recorremos los elementos hermanos siguientes al ancla de la hora
+    let nextEl = anchor.nextElementSibling;
+    while (nextEl) {
+      // Si nos topamos con el siguiente bloque horario, paramos la búsqueda
+      if (nextEl.classList.contains('horaAnchor')) {
+        break;
+      }
 
-  if (classCards.length === 0) return null;
+      // Si es una tarjeta de clase perteneciente a este bloque de las 16:00
+      if (nextEl.classList.contains('clase')) {
+        const head = nextEl.querySelector('.entrenamientoHead');
+        const headerText = head?.textContent?.toLowerCase() ?? '';
+        
+        // Buscamos el botón de entrenar exacto que vimos en WodBuster
+        const btn = nextEl.querySelector('button.button.entrenar') as HTMLButtonElement;
 
-  for (const card of classCards) {
-    const cardHtml = await card.evaluate(el => el.innerHTML);
-    const headerText = await card
-      .$eval('.entrenamientoHead', el => el?.textContent ?? '')
-      .catch(() => '');
-
-    // Verificamos si esta tarjeta pertenece a nuestra hora (ej. contiene "16:00")
-    const matchesTime = cardHtml.includes(timeFormatted);
-
-    if (matchesTime) {
-      console.log(`⏰ ¡Hora ${timeFormatted} encontrada en una tarjeta! Cabecera: "${headerText.trim()}"`);
-      
-      const button = await card.$('button.button.entrenar');
-      if (button) {
-        if (!className) {
-          return button;
-        }
-        if (headerText.toLowerCase().includes(className.toLowerCase())) {
-          console.log(`🎯 ¡Clase "${className}" y botón de reserva localizados con éxito!`);
-          return button;
+        if (btn) {
+          if (!targetClassName) return btn;
+          if (headerText.includes(targetClassName.toLowerCase())) {
+            return btn;
+          }
         }
       }
+      nextEl = nextEl.nextElementSibling;
     }
-  }
 
-  console.log(`❌ No se encontró ninguna tarjeta para las ${timeFormatted} con los filtros indicados.`);
-  return null;
+    return null;
+  }, anchorId, className);
+
+  const element = buttonHandle.asElement();
+  return element ? (element as ElementHandle<Element>) : null;
 }
 export async function makeReservation(
   page: Page,
