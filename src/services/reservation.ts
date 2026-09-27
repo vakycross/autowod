@@ -176,34 +176,49 @@ export async function makeReservation(
   }
 
   const reservationKey = getReservationKey(time);
-
   console.log(`🔍 Buscando clases para ${weekDay} (${date}) en la URL: ${page.url()}`);
 
-  const reservationButton = await findReservationButton(
-    page,
-    reservationKey,
-    className
-  );
+  // Configuración del bucle de espera (intentaremos durante ~90 segundos si no aparece de inmediato)
+  const maxRetries = 18; // 18 intentos * 5 segundos = 90 segundos de margen
+  const retryInterval = 5000; // 5 segundos entre cada comprobación/recarga
+  
+  let reservationButton: ElementHandle<Element> | null = null;
+  let state: ButtonText | null = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    reservationButton = await findReservationButton(page, reservationKey, className);
+
+    if (reservationButton) {
+      state = await getReservationState(reservationButton);
+      // Si ya encontramos el botón y su estado es accionable, salimos del bucle de espera
+      if (state && (state === 'Entrenar' || state === 'Avisar' || state === 'Borrar' || state === 'Cambiar')) {
+        break;
+      }
+    }
+
+    // Si es el último intento y no hay suerte, salimos
+    if (attempt === maxRetries) break;
+
+    console.log(`⏳ Intento ${attempt}/${maxRetries}: Slot no disponible todavía o esperando apertura. Reintentando en 5s...`);
+    
+    // Esperamos 5 segundos y recargamos la página para capturar la apertura en tiempo real
+    await new Promise(resolve => setTimeout(resolve, retryInterval));
+    await page.reload({ waitUntil: 'networkidle2' });
+  }
 
   if (!reservationButton) {
     return {
       success: false,
-      message: `🔍 No reservation slot found for ${await getDateFromUrl(
-        page
-      )} at ${time}`,
+      message: `🔍 No reservation slot found for ${await getDateFromUrl(page)} at ${time} after retries`,
       weekDay,
       time,
     };
   }
 
-  const state = await getReservationState(reservationButton);
-
   if (!state) {
     return {
       success: false,
-      message: `⚠️ Unable to determine reservation status for ${await getDateFromUrl(
-        page
-      )} at ${time}`,
+      message: `⚠️ Unable to determine reservation status for ${await getDateFromUrl(page)} at ${time}`,
       weekDay,
       time,
     };
