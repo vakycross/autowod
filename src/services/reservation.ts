@@ -89,35 +89,44 @@ async function findReservationButton(
   reservationKey: string,
   className: string | null
 ): Promise<ElementHandle<Element> | null> {
-  // Damos un pequeño respiro para que WodBuster cargue las clases dinámicamente
+  // Damos un respiro para que WodBuster renderice la parrilla
   await page.waitForSelector('div.clase', { timeout: 3000 }).catch(() => {});
 
-  // Buscamos todas las tarjetas de clase ('div.clase') en la página actual
-  const classCards = await page.$$('div.clase');
-  if (classCards.length === 0) return null;
+  const exactAnchorId = `${reservationKey}00`; // Ej: h160000
 
-  for (const card of classCards) {
-    // Leemos el título de la clase en la cabecera (ej. WOD, OPEN)
-    const headerText = await card
-      .$eval('.entrenamientoHead', el => el?.textContent ?? '')
-      .catch(() => '');
+  // Usamos evaluate en el navegador para encontrar la tarjeta de clase exacta de esta hora
+  const buttonHandle = await page.evaluateHandle((anchorId, targetClassName) => {
+    const anchor = document.getElementById(anchorId);
+    if (!anchor) return null;
 
-    // Buscamos el botón de reserva específico evitando los menús de iconos (.ghost, .icon)
-    const button = await card.$(
-      'div.actionsjs button:not(.ghost):not(.icon), button.button.entrenar'
-    );
-
-    if (button) {
-      if (!className) {
-        return button;
-      }
-      if (headerText.toLowerCase().includes(className.toLowerCase())) {
-        return button; // ¡Encontró la tarjeta y el botón de reserva exacto!
+    // Buscamos todas las tarjetas de clase en la página
+    const cards = Array.from(document.querySelectorAll('div.clase'));
+    
+    // Filtramos las tarjetas que están visualmente después de nuestro ancla de hora
+    // y antes de cualquier siguiente ancla de hora
+    for (const card of cards) {
+      // Comprobamos si esta tarjeta está después del ancla de la hora buscada
+      if (anchor.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING) {
+        // Comprobamos que no se haya pasado a la siguiente hora (otro horaAnchor posterior)
+        // ... (o simplemente evaluamos su cabecera y botón)
+        const head = card.querySelector('.entrenamientoHead');
+        const headerText = head?.textContent?.toLowerCase() ?? '';
+        
+        const btn = card.querySelector('div.actionsjs button:not(.ghost):not(.icon), button.button.entrenar') as HTMLButtonElement;
+        
+        if (btn) {
+          if (!targetClassName) return btn;
+          if (headerText.includes(targetClassName.toLowerCase())) {
+            return btn;
+          }
+        }
       }
     }
-  }
+    return null;
+  }, exactAnchorId, className);
 
-  return null;
+  const element = buttonHandle.asElement();
+  return element ? (element as ElementHandle<Element>) : null;
 }
 export async function makeReservation(
   page: Page,
