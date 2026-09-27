@@ -36,7 +36,7 @@ export async function getReservationState(
 }
 
 export function getReservationKey(time: string): string {
-  return `h${time.replace(':', '')}0000`;
+  return `h${time.replace(':', '')}00`;
 }
 
 export async function goToNextDay(page: Page): Promise<void> {
@@ -89,27 +89,26 @@ async function findReservationButton(
   reservationKey: string,
   className: string | null
 ): Promise<ElementHandle<Element> | null> {
-  // Buscamos todas las tarjetas de clase ('div.clase') en la vista actual
+  // Añadimos los ceros extras aquí de forma interna ('h1600' -> 'h160000') para que coincida con tu HTML
+  const exactAnchorId = `${reservationKey}00`;
+  
+  const hourAnchor = await page.$(`#${exactAnchorId}`);
   const classCards = await page.$$('div.clase');
   if (classCards.length === 0) return null;
 
   for (const card of classCards) {
-    // Leemos el título de la clase en la cabecera (ej. WOD, OPEN)
     const headerText = await card
       .$eval('.entrenamientoHead', el => el?.textContent ?? '')
       .catch(() => '');
 
-    // Buscamos el botón de reserva específico usando la clase exacta de WodBuster
     const button = await card.$('button.button.entrenar, button');
 
     if (button) {
-      // Si no se especificó un nombre de clase preferido, devolvemos el primer botón válido
       if (!className) {
         return button;
       }
-      // Si se especificó, comprobamos que el nombre de la clase coincida
       if (headerText.toLowerCase().includes(className.toLowerCase())) {
-        return button; // ¡Encontró la tarjeta y clase exacta!
+        return button;
       }
     }
   }
