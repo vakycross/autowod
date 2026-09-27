@@ -103,9 +103,11 @@ async function findReservationButton(
     const button = await card.$('button.button.entrenar, button');
 
     if (button) {
+      // Si no se especificó un nombre de clase preferido, devolvemos el primer botón válido
       if (!className) {
         return button;
       }
+      // Si se especificó, comprobamos que el nombre de la clase coincida
       if (headerText.toLowerCase().includes(className.toLowerCase())) {
         return button; // ¡Encontró la tarjeta y clase exacta!
       }
@@ -114,11 +116,6 @@ async function findReservationButton(
 
   return null;
 }
-
-  // Si no filtró por nombre específico pero hay botones, devuelve el primero
-  return matchingButtons.length > 0 ? matchingButtons[0] : null;
-}
-
 export async function makeReservation(
   page: Page,
   preference: string | null
