@@ -92,41 +92,37 @@ async function findReservationButton(
   // Damos un respiro para que WodBuster renderice la parrilla
   await page.waitForSelector('div.clase', { timeout: 3000 }).catch(() => {});
 
-  const exactAnchorId = `${reservationKey}00`; // Ej: h160000
+  // Buscamos todas las tarjetas de clase ('div.clase') en la página
+  const classCards = await page.$$('div.clase');
+  if (classCards.length === 0) return null;
 
-  // Usamos evaluate en el navegador para encontrar la tarjeta de clase exacta de esta hora
-  const buttonHandle = await page.evaluateHandle((anchorId, targetClassName) => {
-    const anchor = document.getElementById(anchorId);
-    if (!anchor) return null;
-
-    // Buscamos todas las tarjetas de clase en la página
-    const cards = Array.from(document.querySelectorAll('div.clase'));
+  for (const card of classCards) {
+    const cardHtml = await card.evaluate(el => el.innerHTML);
     
-    // Filtramos las tarjetas que están visualmente después de nuestro ancla de hora
-    // y antes de cualquier siguiente ancla de hora
-    for (const card of cards) {
-      // Comprobamos si esta tarjeta está después del ancla de la hora buscada
-      if (anchor.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING) {
-        // Comprobamos que no se haya pasado a la siguiente hora (otro horaAnchor posterior)
-        // ... (o simplemente evaluamos su cabecera y botón)
-        const head = card.querySelector('.entrenamientoHead');
-        const headerText = head?.textContent?.toLowerCase() ?? '';
-        
-        const btn = card.querySelector('div.actionsjs button:not(.ghost):not(.icon), button.button.entrenar') as HTMLButtonElement;
-        
-        if (btn) {
-          if (!targetClassName) return btn;
-          if (headerText.includes(targetClassName.toLowerCase())) {
-            return btn;
-          }
-        }
+    // Verificamos si la tarjeta contiene la hora que buscamos (ej. "16:00")
+    // reservationKey viene como "h1600", por lo que convertimos a "16:00" o buscamos el formato de hora
+    const timeFormatted = reservationKey.replace('h', '').replace(/(\d{2})(\d{2})/, '$1:$2');
+    
+    const matchesTime = cardHtml.includes(timeFormatted) || cardHtml.includes(reservationKey);
+    const headerText = await card
+      .$eval('.entrenamientoHead', el => el?.textContent ?? '')
+      .catch(() => '');
+
+    const button = await card.$(
+      'div.actionsjs button:not(.ghost):not(.icon), button.button.entrenar'
+    );
+
+    if (button && (matchesTime || !reservationKey)) {
+      if (!className) {
+        return button;
+      }
+      if (headerText.toLowerCase().includes(className.toLowerCase())) {
+        return button;
       }
     }
-    return null;
-  }, exactAnchorId, className);
+  }
 
-  const element = buttonHandle.asElement();
-  return element ? (element as ElementHandle<Element>) : null;
+  return null;
 }
 export async function makeReservation(
   page: Page,
