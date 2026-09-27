@@ -173,9 +173,9 @@ export async function makeReservation(
   const reservationKey = getReservationKey(time);
   console.log(`🔍 Buscando clases para ${weekDay} (${date}) en la URL: ${page.url()}`);
 
-  // Configuración del bucle de espera (intentaremos durante ~90 segundos si no aparece de inmediato)
-  const maxRetries = 18; // 18 intentos * 5 segundos = 90 segundos de margen
-  const retryInterval = 5000; // 5 segundos entre cada comprobación/recarga
+// Configuración de reintentos ultra-rápidos (medio segundo)
+  const maxRetries = 120; // 120 intentos * 0.5 segundos = 60 segundos de cobertura total
+  const retryInterval = 500; // ¡Comprobación cada medio segundo exacto!
   
   let reservationButton: ElementHandle<Element> | null = null;
   let state: ButtonText | null = null;
