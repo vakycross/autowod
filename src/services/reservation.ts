@@ -46,14 +46,12 @@ export async function goToNextDay(page: Page): Promise<void> {
 
   if (tParam) {
     const currentSeconds = Number(tParam);
-    // Sumar exactamente 1 día en segundos (24 horas = 86400 segundos)
     const nextDaySeconds = currentSeconds + 86400;
     urlObj.searchParams.set('t', nextDaySeconds.toString());
     
     await page.goto(urlObj.toString());
     await page.waitForNetworkIdle({ timeout: 5000 }).catch(() => {});
   } else {
-    // Fallback por si la URL no tuviera el parámetro 't'
     await page.waitForSelector('a.next');
     await page.click('a.next');
     await page.waitForNetworkIdle({ timeout: 5000 }).catch(() => {});
@@ -108,12 +106,12 @@ async function findReservationButton(
         break;
       }
 
-      // Si es una tarjeta de clase perteneciente a este bloque de las 16:00
+      // Si es una tarjeta de clase perteneciente a este bloque horario
       if (nextEl.classList.contains('clase')) {
         const head = nextEl.querySelector('.entrenamientoHead');
         const headerText = head?.textContent?.toLowerCase() ?? '';
         
-        // Buscamos el botón de entrenar exacto que vimos en WodBuster
+        // Buscamos el botón de entrenar exacto
         const btn = nextEl.querySelector('button.button.entrenar') as HTMLButtonElement;
 
         if (btn) {
@@ -132,6 +130,7 @@ async function findReservationButton(
   const element = buttonHandle.asElement();
   return element ? (element as ElementHandle<Element>) : null;
 }
+
 export async function makeReservation(
   page: Page,
   preference: string | null
@@ -151,9 +150,8 @@ export async function makeReservation(
     };
   }
 
-const reservationKey = getReservationKey(time);
+  const reservationKey = getReservationKey(time);
 
-  // 👈 Pégalo justo aquí en medio:
   console.log(`🔍 Buscando clases para ${weekDay} (${date}) en la URL: ${page.url()}`);
 
   const reservationButton = await findReservationButton(
@@ -309,9 +307,6 @@ export async function processReservations(
 
     if (i === availableDays - 1) break;
 
-    // The gym only opens reservations a few days ahead. Past that horizon the
-    // calendar's "next" control no longer advances the date, so stop instead
-    // of re-processing — and re-booking — the same last day.
     const dateBefore = getISODateFromUrl(page);
     await goToNextDay(page);
     if (getISODateFromUrl(page) === dateBefore) {
