@@ -89,10 +89,17 @@ async function findReservationButton(
   reservationKey: string,
   className: string | null
 ): Promise<ElementHandle<Element> | null> {
-  // Damos un respiro de 3 segundos para que WodBuster cargue las clases dinámicamente
+  // Damos un pequeño respiro para que WodBuster cargue las clases dinámicamente
   await page.waitForSelector('div.clase', { timeout: 3000 }).catch(() => {});
 
-  // Buscamos todas las tarjetas de clase en la vista actual
+  // 1. Validamos y usamos el ancla de la hora exacta (ej. h160000)
+  const exactAnchorId = `${reservationKey}00`;
+  const hourAnchor = await page.$(`#${exactAnchorId}`);
+  if (!hourAnchor) {
+    return null; // Si no existe esa hora en la parrilla de este día, pasamos
+  }
+
+  // 2. Buscamos todas las tarjetas de clase ('div.clase') en la página
   const classCards = await page.$$('div.clase');
   if (classCards.length === 0) return null;
 
@@ -102,15 +109,17 @@ async function findReservationButton(
       .$eval('.entrenamientoHead', el => el?.textContent ?? '')
       .catch(() => '');
 
-    // Buscamos el botón de reserva específico usando la clase exacta de WodBuster
-    const button = await card.$('button.button.entrenar, button');
+    // 3. Buscamos el botón de acción principal evitando los botones de iconos/menús (.ghost, .icon)
+    const button = await card.$(
+      'div.actionsjs button:not(.ghost):not(.icon), button.button.entrenar'
+    );
 
     if (button) {
       if (!className) {
         return button;
       }
       if (headerText.toLowerCase().includes(className.toLowerCase())) {
-        return button; // ¡Encontró la tarjeta y clase exacta!
+        return button; // ¡Encontró la tarjeta y el botón de reserva exacto!
       }
     }
   }
