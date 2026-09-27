@@ -74,27 +74,32 @@ async function findReservationButton(
   reservationKey: string,
   className: string | null
 ): Promise<ElementHandle<Element> | null> {
-  const buttons = await page.$$(
-    `div[data-magellan-destination="${reservationKey}"] button`
-  );
+  // 1. Buscamos el contenedor de la hora exacta basado en el ID de tu WodBuster (ej: id="h160000")
+  const hourAnchor = await page.$(`#${reservationKey}`);
+  if (!hourAnchor) return null;
 
-  if (buttons.length === 0) return null;
-  if (!className || buttons.length === 1) return buttons[0];
+  // 2. Buscamos todas las tarjetas de clase ('div.clase') que le siguen a esa hora en la parrilla
+  const classCards = await page.$$('div.clase');
+  if (classCards.length === 0) return null;
 
-  for (const button of buttons) {
-    const sectionText = await button.evaluate(el => {
-      const section = el.closest('[data-magellan-destination]');
-      return section?.textContent ?? '';
-    });
-    if (sectionText.toLowerCase().includes(className.toLowerCase())) {
-      return button;
+  const matchingButtons: ElementHandle<Element>[] = [];
+
+  for (const card of classCards) {
+    // Comprobamos si esta tarjeta de clase pertenece a la hora buscada o está en su bloque
+    const headerText = await card.$eval('.entrenamientoHead', el => el?.textContent ?? '').catch(() => '');
+    const button = await card.$('button');
+    
+    if (button) {
+      if (!className) {
+        matchingButtons.push(button);
+      } else if (headerText.toLowerCase().includes(className.toLowerCase())) {
+        return button; // ¡Encontró la tarjeta exacta (ej. WOD) a esa hora!
+      }
     }
   }
 
-  console.log(
-    `⚠️ Class "${className}" not found at this time slot — using first available`
-  );
-  return buttons[0];
+  // Si no filtró por nombre específico pero hay botones, devuelve el primero
+  return matchingButtons.length > 0 ? matchingButtons[0] : null;
 }
 
 export async function makeReservation(
