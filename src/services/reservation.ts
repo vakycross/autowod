@@ -89,29 +89,31 @@ async function findReservationButton(
   reservationKey: string,
   className: string | null
 ): Promise<ElementHandle<Element> | null> {
-  // 1. Buscamos el contenedor de la hora exacta basado en el ID de tu WodBuster (ej: id="h160000")
-  const hourAnchor = await page.$(`#${reservationKey}`);
-  if (!hourAnchor) return null;
-
-  // 2. Buscamos todas las tarjetas de clase ('div.clase') que le siguen a esa hora en la parrilla
+  // Buscamos todas las tarjetas de clase ('div.clase') en la vista actual
   const classCards = await page.$$('div.clase');
   if (classCards.length === 0) return null;
 
-  const matchingButtons: ElementHandle<Element>[] = [];
-
   for (const card of classCards) {
-    // Comprobamos si esta tarjeta de clase pertenece a la hora buscada o está en su bloque
-    const headerText = await card.$eval('.entrenamientoHead', el => el?.textContent ?? '').catch(() => '');
-    const button = await card.$('button');
-    
+    // Leemos el título de la clase en la cabecera (ej. WOD, OPEN)
+    const headerText = await card
+      .$eval('.entrenamientoHead', el => el?.textContent ?? '')
+      .catch(() => '');
+
+    // Buscamos el botón de reserva específico usando la clase exacta de WodBuster
+    const button = await card.$('button.button.entrenar, button');
+
     if (button) {
       if (!className) {
-        matchingButtons.push(button);
-      } else if (headerText.toLowerCase().includes(className.toLowerCase())) {
-        return button; // ¡Encontró la tarjeta exacta (ej. WOD) a esa hora!
+        return button;
+      }
+      if (headerText.toLowerCase().includes(className.toLowerCase())) {
+        return button; // ¡Encontró la tarjeta y clase exacta!
       }
     }
   }
+
+  return null;
+}
 
   // Si no filtró por nombre específico pero hay botones, devuelve el primero
   return matchingButtons.length > 0 ? matchingButtons[0] : null;
