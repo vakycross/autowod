@@ -89,7 +89,10 @@ async function findReservationButton(
   reservationKey: string,
   className: string | null
 ): Promise<ElementHandle<Element> | null> {
-  // Buscamos todas las tarjetas de clase ('div.clase') en la vista actual
+  // Damos un respiro de 3 segundos para que WodBuster cargue las clases dinámicamente
+  await page.waitForSelector('div.clase', { timeout: 3000 }).catch(() => {});
+
+  // Buscamos todas las tarjetas de clase en la vista actual
   const classCards = await page.$$('div.clase');
   if (classCards.length === 0) return null;
 
