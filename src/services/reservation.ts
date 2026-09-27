@@ -112,32 +112,27 @@ async function findReservationButton(
   reservationKey: string,
   className: string | null
 ): Promise<ElementHandle<Element> | null> {
-  // Aseguramos que la clave tenga el formato de ID correcto (ej. h160000)
   const anchorId = reservationKey.startsWith('h') ? reservationKey : `h${reservationKey}`;
   console.log(`🔎 Buscando ancla exacta en el DOM: #${anchorId}`);
 
-  // Damos un respiro para que WodBuster renderice la parrilla
   await page.waitForSelector('.horaAnchor, div.clase', { timeout: 5000 }).catch(() => {});
 
   const buttonHandle = await page.evaluateHandle((targetAnchorId, targetClassName) => {
     const anchor = document.getElementById(targetAnchorId);
     if (!anchor) return null;
 
-    // Recorremos los elementos hermanos siguientes al ancla de la hora
     let nextEl = anchor.nextElementSibling;
     while (nextEl) {
-      // Si nos topamos con el siguiente bloque horario, paramos la búsqueda
       if (nextEl.classList.contains('horaAnchor')) {
         break;
       }
 
-      // Si es una tarjeta de clase perteneciente a este bloque horario
       if (nextEl.classList.contains('clase')) {
         const head = nextEl.querySelector('.entrenamientoHead');
         const headerText = head?.textContent?.toLowerCase() ?? '';
         
-        // Buscamos el botón de entrenar exacto
-        const btn = nextEl.querySelector('button.button.entrenar') as HTMLButtonElement;
+        // BuscamosCualquier botón de acción principal (entrenar, cambiar, borrar, etc.)
+        const btn = nextEl.querySelector('button.button.entrenar, button.button.cambiar, button.button.borrar, button.button.avisar') as HTMLButtonElement;
 
         if (btn) {
           if (!targetClassName) return btn;
