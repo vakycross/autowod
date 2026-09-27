@@ -36,7 +36,7 @@ export async function getReservationState(
 }
 
 export function getReservationKey(time: string): string {
-  return `h${time.replace(':', '')}00`;
+  return `h${time.replace(':', '')}0000`;
 }
 
 export async function goToNextDay(page: Page): Promise<void> {
