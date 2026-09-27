@@ -31,10 +31,35 @@ export async function goToReservations(page: Page): Promise<void> {
 export async function getReservationState(
   reservationButton: ElementHandle<Element>
 ): Promise<ButtonText | null> {
-  const buttonText = await reservationButton.evaluate(el => el.textContent);
-  return buttonText as ButtonText | null;
-}
+  const rawText = await reservationButton.evaluate(el => el.textContent);
+  if (!rawText) return null;
 
+  // Limpiamos símbolos, tildes, iconos y espacios en blanco
+  const cleanText = rawText
+    .replace(/[✔✖️⏳⚠️ℹ️]/g, '')
+    .trim()
+    .toLowerCase();
+
+  console.log(`🔘 Texto bruto del botón: "${rawText.trim()}" | Texto limpio: "${cleanText}"`);
+
+  if (cleanText.includes('reservar') || cleanText.includes('entrenar')) {
+    return 'Entrenar' as ButtonText;
+  }
+  if (cleanText.includes('avisar') || cleanText.includes('lista')) {
+    return 'Avisar' as ButtonText;
+  }
+  if (cleanText.includes('borrar') || cleanText.includes('cancelar')) {
+    return 'Borrar' as ButtonText;
+  }
+  if (cleanText.includes('cambiar')) {
+    return 'Cambiar' as ButtonText;
+  }
+  if (cleanText.includes('finalizada')) {
+    return 'Finalizada' as ButtonText;
+  }
+
+  return rawText.trim() as ButtonText;
+}
 export function getReservationKey(time: string): string {
   return `h${time.replace(':', '')}00`;
 }
