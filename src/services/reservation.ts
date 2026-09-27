@@ -34,9 +34,9 @@ export async function getReservationState(
   const rawText = await reservationButton.evaluate(el => el.textContent);
   if (!rawText) return null;
 
-  // Limpiamos símbolos, tildes, iconos y espacios en blanco
+  // Limpiamos espacios y pasamos a minúsculas de forma totalmente segura
   const cleanText = rawText
-    .replace(/[✔✖️⏳⚠️ℹ️]/g, '')
+    .replace(/[^\w\sáéíóúüñ]/gi, '')
     .trim()
     .toLowerCase();
 
