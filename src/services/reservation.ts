@@ -90,39 +90,44 @@ async function findReservationButton(
   className: string | null
 ): Promise<ElementHandle<Element> | null> {
   // Damos un respiro para que WodBuster renderice la parrilla
-  await page.waitForSelector('div.clase', { timeout: 3000 }).catch(() => {});
+  await page.waitForSelector('.horaAnchor, div.clase', { timeout: 3000 }).catch(() => {});
 
-  // Buscamos todas las tarjetas de clase ('div.clase') en la página
-  const classCards = await page.$$('div.clase');
-  if (classCards.length === 0) return null;
+  const exactAnchorId = `${reservationKey}00`; // Ej: h160000
 
-  for (const card of classCards) {
-    const cardHtml = await card.evaluate(el => el.innerHTML);
-    
-    // Verificamos si la tarjeta contiene la hora que buscamos (ej. "16:00")
-    // reservationKey viene como "h1600", por lo que convertimos a "16:00" o buscamos el formato de hora
-    const timeFormatted = reservationKey.replace('h', '').replace(/(\d{2})(\d{2})/, '$1:$2');
-    
-    const matchesTime = cardHtml.includes(timeFormatted) || cardHtml.includes(reservationKey);
-    const headerText = await card
-      .$eval('.entrenamientoHead', el => el?.textContent ?? '')
-      .catch(() => '');
+  const buttonHandle = await page.evaluateHandle((anchorId, targetClassName) => {
+    const anchor = document.getElementById(anchorId);
+    if (!anchor) return null;
 
-    const button = await card.$(
-      'div.actionsjs button:not(.ghost):not(.icon), button.button.entrenar'
-    );
-
-    if (button && (matchesTime || !reservationKey)) {
-      if (!className) {
-        return button;
+    // Recorremos los elementos hermanos siguientes al ancla de la hora
+    let nextEl = anchor.nextElementSibling;
+    while (nextEl) {
+      // Si nos topamos con la siguiente hora, paramos la búsqueda para no coger clases de otro horario
+      if (nextEl.classList.contains('horaAnchor')) {
+        break;
       }
-      if (headerText.toLowerCase().includes(className.toLowerCase())) {
-        return button;
+
+      // Si es una tarjeta de clase dentro de este bloque horario
+      if (nextEl.classList.contains('clase')) {
+        const head = nextEl.querySelector('.entrenamientoHead');
+        const headerText = head?.textContent?.toLowerCase() ?? '';
+        // Buscamos el botón de entrenar exacto que vimos en el HTML
+        const btn = nextEl.querySelector('button.button.entrenar') as HTMLButtonElement;
+
+        if (btn) {
+          if (!targetClassName) return btn;
+          if (headerText.includes(targetClassName.toLowerCase())) {
+            return btn;
+          }
+        }
       }
+      nextEl = nextEl.nextElementSibling;
     }
-  }
 
-  return null;
+    return null;
+  }, exactAnchorId, className);
+
+  const element = buttonHandle.asElement();
+  return element ? (element as ElementHandle<Element>) : null;
 }
 export async function makeReservation(
   page: Page,
