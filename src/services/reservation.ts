@@ -133,7 +133,11 @@ export async function makeReservation(
     };
   }
 
-  const reservationKey = getReservationKey(time);
+const reservationKey = getReservationKey(time);
+
+  // 👈 Pégalo justo aquí en medio:
+  console.log(`🔍 Buscando clases para ${weekDay} (${date}) en la URL: ${page.url()}`);
+
   const reservationButton = await findReservationButton(
     page,
     reservationKey,
