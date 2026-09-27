@@ -74,18 +74,17 @@ export async function goToNextDay(page: Page): Promise<void> {
     const nextDaySeconds = currentSeconds + 86400;
     urlObj.searchParams.set('t', nextDaySeconds.toString());
     
-    // Navegamos al día siguiente de forma limpia
-    await page.goto(urlObj.toString(), { waitUntil: 'domcontentloaded' });
+    // Usamos 'load' o 'domcontentloaded' y un timeout más agresivo de 2000ms
+    await page.goto(urlObj.toString(), { waitUntil: 'domcontentloaded', timeout: 15000 });
     
-    // En lugar de esperar a toda la red, esperamos solo a que aparezca la parrilla horaria
-    await page.waitForSelector('.horaAnchor', { timeout: 3000 }).catch(() => {});
+    // Espera ultra-corta optimizada a 2 segundos
+    await page.waitForSelector('.horaAnchor', { timeout: 2000 }).catch(() => {});
   } else {
     await page.waitForSelector('a.next');
     await page.click('a.next');
-    await page.waitForSelector('.horaAnchor', { timeout: 3000 }).catch(() => {});
+    await page.waitForSelector('.horaAnchor', { timeout: 2000 }).catch(() => {});
   }
 }
-
 export async function getWeekDayFromUrl(page: Page): Promise<string> {
   const url = await page.url();
   const weekDayInSeconds = url.split('=')[1];
